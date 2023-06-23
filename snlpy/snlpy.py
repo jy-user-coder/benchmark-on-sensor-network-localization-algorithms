@@ -42,14 +42,16 @@ class snl_case:
 
 
     def gen_gradF(self, is_relaxed):
+        m = self.m
+        n = self.n
         if is_relaxed:
             def gradF(x):
                 res = np.zeros((len(self.indices), 2*n))
+                re_x = x.reshape((-1, 2))
+                
                 return res
         else:
             def gradF(x):
-                m = self.m
-                n = self.n
                 re_x = x.reshape((-1, 2))
                 res = np.zeros((n*(n-1)//2 + m*n, 2*n))
                 for i in range(n):
