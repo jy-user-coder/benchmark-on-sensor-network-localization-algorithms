@@ -32,14 +32,14 @@ def generate_data(m, n, d, num_test, rng):
     print('anchors and sensors positions have already stored in the folder')
 
 
-def ALP(Fk, wk, gradF, h, gradh, xk, \
+def ALP(Fk, wk, gradF, h, gradh, xk, method='findroot', \
             is_exact=False, sigma=0.005, theta=0.5, rho=2, alpha=1):
     gFk = gradF(xk)
     uk = min(sigma, theta*(wk**alpha))
     fxu = lambda d: h(Fk + gFk @ d) + uk*np.sum(d**2)
     gradfxu = lambda d: gradh(Fk + gFk @ d) @ gFk + 2*uk*d
     if is_exact:
-        res_dict = op.minimize(fxu, 0.01*np.zeros_like(xk), jac=gradfxu, method='BFGS')
+        res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method='BFGS')
     else:
         g0_norm = np.linalg.norm(gradh(Fk) @ gFk)
         eps_k = 0.1 * theta * (wk ** rho)
@@ -47,26 +47,37 @@ def ALP(Fk, wk, gradF, h, gradh, xk, \
             eps_k = eps_k * theta
         gtol = np.sqrt(2 * uk *eps_k)
         myprint('gtol', gtol, '||gradf(0)||', g0_norm)
-        options = {'gtol': gtol}
-        res_dict = op.minimize(fxu, 0.01*np.zeros_like(xk), jac=gradfxu, method='BFGS', options=options)
-    return res_dict
+        if method == 'findroot':
+            res_dict = op.root(gradfxu, np.zeros_like(xk), tol=gtol)
+            return res_dict, fxu
+        elif method == 'minimize':
+            options = {'gtol': gtol}
+            res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method='BFGS', options=options)
+            return res_dict, fxu
 
 
-def GALP(F, gradF, h, gradh, xk, epochs=100, is_exact=False, \
+
+def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is_exact=False, \
             gamma=0.9, lam=0.9, sigma=0.005, theta=0.5, rho=2, alpha=1, **kwargs):
-    params = {is_exact:False, gamma:0.9, lam:0.9, sigma:0.005, theta:0.5, rho:2, alpha:1}
+    params = {method:'findroot', epochs:100, is_exact:False, \
+               gamma:0.9, lam:0.9, sigma:0.005, theta:0.5, rho:2, alpha:1}
     if len(kwargs) > 0:
         assert all(item in kwargs.keys() for item in params.keys())
         locals().update(kwargs)
         params.update(kwargs)
+
     for k in range(epochs):
         Fk = F(xk)
         wk = h(Fk)
-        if wk < 10**(-5):
+        if wk < tol:
             break
-        res_dict = ALP(Fk, wk, gradF, h, gradh, xk, is_exact, sigma, theta, rho, alpha)
+        res_dict, fxu = ALP(Fk, wk, gradF, h, gradh, xk, method, is_exact, sigma, theta, rho, alpha)
+        # print(res_dict)
         dk = res_dict['x']
-        fxudk = res_dict['fun']
+        if method == 'findroot':
+            fxudk = fxu(dk)
+        elif method == 'minimize':
+            fxudk = res_dict['fun']
         term_rhs = fxudk - wk
         stp_size = 1.0
         while stp_size >= 2**(-32):
