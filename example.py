@@ -35,11 +35,10 @@ for i in range(num_test):
     x0 = rng.random(n*d) - 0.5
     for j, r in enumerate(r_list):
         G = snl_case(anchors, sensors, r, method='default')
-        F = G.gen_F(True)
-        print(F(x0).shape)
-        # gradF = G.gen_gradF()
-        # h = G.gen_h1()
-        # gradh = G.gen_gradh1()
-        # ans, wk, k = utils.GALP(F, gradF, h, gradh, x0, 100, sigma=0.0001)
-        # print('test no.', i, 'RMSD', utils.RMSD(ans, sensors))
+        F = G.gen_F(False)
+        gradF = G.gen_gradF(False)
+        h = G.gen_h1(False)
+        gradh = G.gen_gradh1(False)
+        ans, wk, k = utils.GALP(F, gradF, h, gradh, x0, 100, sigma=0.0001)
+        print('test no.', i, 'RMSD', utils.RMSD(ans, sensors))
 
