@@ -12,7 +12,7 @@ def my_format(a):
         return a
 
 
-def myprint(*args):
+def my_print(*args):
     for arg in args:
         print(my_format(arg), end=' ')
     print('')
@@ -46,7 +46,7 @@ def ALP(Fk, wk, gradF, h, gradh, xk, method='findroot', \
         while g0_norm <= np.sqrt(2 * uk * eps_k):
             eps_k = eps_k * theta
         gtol = np.sqrt(2 * uk *eps_k)
-        myprint('gtol', gtol, '||gradf(0)||', g0_norm)
+        my_print('gtol', gtol, '||gradf(0)||', g0_norm)
         if method == 'findroot':
             res_dict = op.root(gradfxu, np.zeros_like(xk), tol=gtol)
             return res_dict, fxu
@@ -54,7 +54,6 @@ def ALP(Fk, wk, gradF, h, gradh, xk, method='findroot', \
             options = {'gtol': gtol}
             res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method='BFGS', options=options)
             return res_dict, fxu
-
 
 
 def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is_exact=False, \
@@ -72,7 +71,6 @@ def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is
         if wk < tol:
             break
         res_dict, fxu = ALP(Fk, wk, gradF, h, gradh, xk, method, is_exact, sigma, theta, rho, alpha)
-        # print(res_dict)
         dk = res_dict['x']
         if method == 'findroot':
             fxudk = fxu(dk)
@@ -86,7 +84,7 @@ def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is
             else:
                 stp_size = gamma * stp_size
         xk = xk + stp_size * dk
-        myprint('epoch', k, 'loss', wk, 'norm_upd',\
+        my_print('epoch', k, 'loss', wk, 'norm_upd',\
             np.linalg.norm(dk), 'stepsize', stp_size)
     return xk, h(F(xk)), k
 
