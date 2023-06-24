@@ -24,6 +24,11 @@ def RMSD(x, y, DIM=2):
     return np.linalg.norm(x - y) * DIM / np.sqrt(len(x))
 
 
+def Linf(x, y, DIM=2):
+    x = x.reshape((-1,))
+    y = y.reshape((-1,))
+    return np.max(np.abs(x - y))
+
 def generate_data(m, n, d, num_test, rng):
     anchors_list = rng.random((m, d, num_test)) - 0.5
     sensors_list = rng.random((n, d, num_test)) - 0.5
@@ -32,34 +37,40 @@ def generate_data(m, n, d, num_test, rng):
     print('anchors and sensors positions have already stored in the folder')
 
 
-def ALP(Fk, wk, gradF, h, gradh, xk, method='findroot', \
-            is_exact=False, sigma=0.005, theta=0.5, rho=2, alpha=1):
+def ALP(Fk, wk, gradF, h, gradh, xk, \
+            is_exact=False, sub_method='min', optimizer='BFGS', \
+                sigma=0.005, theta=0.5, rho=2, alpha=1):
     gFk = gradF(xk)
     uk = min(sigma, theta*(wk**alpha))
     fxu = lambda d: h(Fk + gFk @ d) + uk*np.sum(d**2)
     gradfxu = lambda d: gradh(Fk + gFk @ d) @ gFk + 2*uk*d
+    g0_norm = np.linalg.norm(gradh(Fk) @ gFk)
     if is_exact:
-        res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method='BFGS')
+        gtol = 0.
+        if sub_method == 'root':
+            op.root(gradfxu, np.zeros_like(xk))
+        elif sub_method == 'min':
+            res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method=optimizer)
     else:
-        g0_norm = np.linalg.norm(gradh(Fk) @ gFk)
-        eps_k = 0.1 * theta * (wk ** rho)
+        eps_k = theta * (wk ** rho)
         while g0_norm <= np.sqrt(2 * uk * eps_k):
             eps_k = eps_k * theta
         gtol = np.sqrt(2 * uk *eps_k)
-        my_print('gtol', gtol, '||gradf(0)||', g0_norm)
-        if method == 'findroot':
+        if sub_method == 'root':
             res_dict = op.root(gradfxu, np.zeros_like(xk), tol=gtol)
-            return res_dict, fxu
-        elif method == 'minimize':
+        elif sub_method == 'min':
             options = {'gtol': gtol}
-            res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, method='BFGS', options=options)
-            return res_dict, fxu
+            res_dict = op.minimize(fxu, np.zeros_like(xk), jac=gradfxu, \
+                                    method=optimizer, options=options)
+    return res_dict, fxu, gtol, g0_norm
 
 
-def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is_exact=False, \
-            gamma=0.9, lam=0.9, sigma=0.005, theta=0.5, rho=2, alpha=1, **kwargs):
-    params = {method:'findroot', epochs:100, is_exact:False, \
-               gamma:0.9, lam:0.9, sigma:0.005, theta:0.5, rho:2, alpha:1}
+def GALP(F, gradF, h, gradh, xk, tol=10**(-6), epochs=100, \
+          is_exact=False, sub_method='min', optimizer='BFGS', \
+                gamma=0.9, lam=0.9, sigma=0.005, theta=0.5, rho=2, alpha=1, **kwargs):
+    params = {tol:10**(-4), epochs:100, is_exact:False, \
+                sub_method:'min', optimizer:'BFGS', \
+                    gamma:0.9, lam:0.9, sigma:0.005, theta:0.5, rho:2, alpha:1}
     if len(kwargs) > 0:
         assert all(item in kwargs.keys() for item in params.keys())
         locals().update(kwargs)
@@ -70,11 +81,12 @@ def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is
         wk = h(Fk)
         if wk < tol:
             break
-        res_dict, fxu = ALP(Fk, wk, gradF, h, gradh, xk, method, is_exact, sigma, theta, rho, alpha)
+        res_dict, fxu, gtol, g0_norm = ALP(Fk, wk, gradF, h, gradh, xk, \
+                is_exact, sub_method, optimizer, sigma, theta, rho, alpha)
         dk = res_dict['x']
-        if method == 'findroot':
+        if sub_method == 'root':
             fxudk = fxu(dk)
-        elif method == 'minimize':
+        elif sub_method == 'min':
             fxudk = res_dict['fun']
         term_rhs = fxudk - wk
         stp_size = 1.0
@@ -84,7 +96,14 @@ def GALP(F, gradF, h, gradh, xk, tol=10**(-4), method='findroot', epochs=100, is
             else:
                 stp_size = gamma * stp_size
         xk = xk + stp_size * dk
-        my_print('epoch', k, 'loss', wk, 'norm_upd',\
-            np.linalg.norm(dk), 'stepsize', stp_size)
-    return xk, h(F(xk)), k
+        if sub_method == 'min':
+            my_print('epoch', k, 'loss', wk, 'norm_upd', \
+                np.linalg.norm(dk), 'stepsize', stp_size, \
+                    'gtol', gtol, 'g0_norm', g0_norm, \
+                        'end point grad', np.linalg.norm(res_dict['jac']))
+        elif sub_method == 'root':
+            my_print('epoch', k, 'loss', wk, 'norm_upd', \
+                np.linalg.norm(dk), 'stepsize', stp_size, \
+                    'gtol', gtol, 'g0_norm', g0_norm)
+    return xk, h(F(xk)), gradh(F(xk)) @ gradF(xk)
 

@@ -59,14 +59,13 @@ class snl_case:
                             res[k, 2*j] = -re_x[i, 0] + re_x[j, 0]
                             res[k, 2*j + 1] = -re_x[i, 1] + re_x[j, 1]
                             k = k + 1
-                k1 = k
                 for i in range(n):
                     for j in range(m):
                         entry = j + self.m*i
                         if self.dda2s[entry] > 0:
                             res[k, 2*i:2*i+2] = re_x[i, :] - self.anchors[j, :]
                             k = k + 1
-                return res
+                return sm.csr_matrix(res)
         else:
             def gradF(x):
                 re_x = x.reshape((-1, 2))
@@ -82,7 +81,7 @@ class snl_case:
                         res[k, 2*j] = -re_x[i, 0] + re_x[j, 0]
                         res[k, 2*j + 1] = -re_x[i, 1] + re_x[j, 1]
                         k = k + 1
-                return res
+                return sm.csr_matrix(res)
         return gradF
 
 

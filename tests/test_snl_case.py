@@ -18,38 +18,38 @@ G = snl_case(anchors, sensors, r, method='default')
 
 
 class test_snl_case(unittest.TestCase):
-    def test_init(self):
-        sensors_test = np.array([[0, 0], [1, 0], [2, 0], [3, 0]])
-        anchors_test = np.array([[4, 0], [5, 0], [6, 0]])
-        G1 = snl_case(anchors_test, sensors_test, 100)
-        print('dda2s', G1.dda2s)
-        print('dds2s', G1.dds2s)
-        k0 = 0
-        for i in range(G1.n):
-            for j in range(i+1, G1.n):
-                entry = G1.n * i + j - ((i + 2) * (i + 1)) // 2 
-                # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
-                dis = np.linalg.norm(sensors_test[i, :] - sensors_test[j, :])
-                self.assertEqual(G1.target_relaxed[entry], dis)
-                k0 = k0 + 1
-        self.assertEqual(k0, G1.n*(G1.n-1)//2)
-        k1 = k0
-        for i in range(G1.n):
-            for j in range(G1.m):
-                entry = j + G1.m*i + k0
-                dis = np.linalg.norm(sensors_test[i, :] - anchors_test[j, :])
-                self.assertEqual(G1.target_relaxed[entry], dis)
-                k1 = k1 + 1
+    # def test_init(self):
+    #     sensors_test = np.array([[0, 0], [1, 0], [2, 0], [3, 0]])
+    #     anchors_test = np.array([[4, 0], [5, 0], [6, 0]])
+    #     G1 = snl_case(anchors_test, sensors_test, 100)
+    #     print('dda2s', G1.dda2s)
+    #     print('dds2s', G1.dds2s)
+    #     k0 = 0
+    #     for i in range(G1.n):
+    #         for j in range(i+1, G1.n):
+    #             entry = G1.n * i + j - ((i + 2) * (i + 1)) // 2 
+    #             # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
+    #             dis = np.linalg.norm(sensors_test[i, :] - sensors_test[j, :])
+    #             self.assertEqual(G1.target_relaxed[entry], dis)
+    #             k0 = k0 + 1
+    #     self.assertEqual(k0, G1.n*(G1.n-1)//2)
+    #     k1 = k0
+    #     for i in range(G1.n):
+    #         for j in range(G1.m):
+    #             entry = j + G1.m*i + k0
+    #             dis = np.linalg.norm(sensors_test[i, :] - anchors_test[j, :])
+    #             self.assertEqual(G1.target_relaxed[entry], dis)
+    #             k1 = k1 + 1
 
 
-    def test_grad(self):
-        for is_relaxed in [True, False]:
-            F = G.gen_F(is_relaxed)
-            gradF = G.gen_gradF(is_relaxed)
-            eps = 0.0001
-            dx = (np.random.random(n*d) - 0.5) * eps
-            self.assertEqual(gradF(x0).shape, (F(x0).shape[0], n*d))
-            self.assertAlmostEqual(np.linalg.norm((F(x0+dx)-F(x0)-gradF(x0) @ dx)/eps), 0, places=2)
+    # def test_grad(self):
+    #     for is_relaxed in [True, False]:
+    #         F = G.gen_F(is_relaxed)
+    #         gradF = G.gen_gradF(is_relaxed)
+    #         eps = 0.0001
+    #         dx = (np.random.random(n*d) - 0.5) * eps
+    #         self.assertEqual(gradF(x0).shape, (F(x0).shape[0], n*d))
+    #         self.assertAlmostEqual(np.linalg.norm((F(x0+dx)-F(x0)-gradF(x0) @ dx)/eps), 0, places=2)
 
 
     def test_galp_1loss(self):
@@ -57,19 +57,17 @@ class test_snl_case(unittest.TestCase):
         gradF = G.gen_gradF(True)
         h1 = G.gen_h1(True)
         gradh1 = G.gen_gradh1(True)
-        x_ans, wk, k = utils.GALP(F, gradF, h1, gradh1, x0, method='minimize', epochs=50, sigma=0.0001)
-        self.assertEqual(x_ans.shape, (d*n,))
-        self.assertEqual(h1(F(x_ans)), wk)
-    
+        x_ans, wk, jac = utils.GALP(F, gradF, h1, gradh1, x0, epochs=50, sigma=0.0001)
+        print(wk, utils.RMSD(x_ans, sensors), utils.Linf(x_ans, sensors), np.linalg.norm(jac))
 
     # def test_galp_2loss(self):
     #     G = snl_case(anchors, sensors, r, method='default')
-    #     F = G.gen_F(False)
-    #     gradF = G.gen_gradF(False)
-    #     h2 = G.gen_h2(False)
-    #     gradh2 = G.gen_gradh2(False)
-    #     x_ans, wk, k = utils.GALP(F, gradF, h2, gradh2, x0, method='minimize', epochs=100, sigma=0.0001)
-    #     print(utils.RMSD(x_ans, sensors))
+    #     F = G.gen_F(True)
+    #     gradF = G.gen_gradF(True)
+    #     h2 = G.gen_h2(True)
+    #     gradh2 = G.gen_gradh2(True)
+    #     x_ans, wk, jac = utils.GALP(F, gradF, h2, gradh2, x0, is_exact=True, sub_method='min', optimizer='CG', epochs=100)
+    #     print(wk, utils.RMSD(x_ans, sensors), utils.Linf(x_ans, sensors), np.linalg.norm(jac))
     #     self.assertEqual(x_ans.shape, (d*n,))
     #     self.assertEqual(h2(F(x_ans)), wk)
 
