@@ -19,10 +19,10 @@ G = snl_case(anchors, sensors, r, method='default')
 
 class test_snl_case(unittest.TestCase):
     def test_galp_1loss(self):
-        F = G.gen_F()
-        gradF = G.gen_gradF()
-        h1 = G.gen_h1()
-        gradh1 = G.gen_gradh1()
+        F = G.gen_F(False)
+        gradF = G.gen_gradF(False)
+        h1 = G.gen_h1(False)
+        gradh1 = G.gen_gradh1(False)
         x_ans, wk, k = utils.GALP(F, gradF, h1, gradh1, x0, 5, sigma=0.0001)
         self.assertEqual(x_ans.shape, (d*n,))
         self.assertEqual(h1(F(x_ans)), wk)
@@ -30,10 +30,10 @@ class test_snl_case(unittest.TestCase):
 
     def test_galp_2loss(self):
         G = snl_case(anchors, sensors, r, method='default')
-        F = G.gen_F()
-        gradF = G.gen_gradF()
-        h2 = G.gen_h2()
-        gradh2 = G.gen_gradh2()
+        F = G.gen_F(False)
+        gradF = G.gen_gradF(False)
+        h2 = G.gen_h2(False)
+        gradh2 = G.gen_gradh2(False)
         x_ans, wk, k = utils.GALP(F, gradF, h2, gradh2, x0, 5, sigma=0.0001)
         self.assertEqual(x_ans.shape, (d*n,))
         self.assertEqual(h2(F(x_ans)), wk)
