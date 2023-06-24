@@ -20,7 +20,6 @@ class snl_case:
             adjs2s = (dds2s_full <= r)
             tmp_dda2s = (dda2s_full * adja2s).T
             tmp_dds2s = dds2s_full * adjs2s
-            # self.is_sparse = False
             self.dda2s = (tmp_dda2s).reshape((-1,))
             self.dds2s = tmp_dds2s
             self.target_radius = np.hstack([(self.dds2s==0)*r + self.dds2s, (self.dda2s==0)*r + self.dda2s])

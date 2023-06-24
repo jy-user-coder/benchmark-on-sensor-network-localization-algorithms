@@ -52,13 +52,14 @@ class test_snl_case(unittest.TestCase):
     #         self.assertAlmostEqual(np.linalg.norm((F(x0+dx)-F(x0)-gradF(x0) @ dx)/eps), 0, places=2)
 
 
-    def test_galp_1loss(self):
-        F = G.gen_F(True)
-        gradF = G.gen_gradF(True)
-        h1 = G.gen_h1(True)
-        gradh1 = G.gen_gradh1(True)
-        x_ans, wk, jac = utils.GALP(F, gradF, h1, gradh1, x0, epochs=50, sigma=0.0001)
-        print(wk, utils.RMSD(x_ans, sensors), utils.Linf(x_ans, sensors), np.linalg.norm(jac))
+    # def test_galp_1loss(self):
+    #     F = G.gen_F(True)
+    #     gradF = G.gen_gradF(True)
+    #     h1 = G.gen_h1(True)
+    #     gradh1 = G.gen_gradh1(True)
+    #     x_ans, wk, jac = utils.GALP(F, gradF, h1, gradh1, x0, epochs=50, sigma=0.0001)
+    #     print(wk, utils.RMSD(x_ans, sensors), utils.Linf(x_ans, sensors), np.linalg.norm(jac))
+
 
     # def test_galp_2loss(self):
     #     G = snl_case(anchors, sensors, r, method='default')
@@ -94,3 +95,10 @@ class test_snl_case(unittest.TestCase):
     #     self.assertEqual(x_ans.shape, (d, n))
 
 
+    def test_solver(self):
+        F = G.gen_F(True)
+        gradF = G.gen_gradF(True)
+        h1 = G.gen_h1(True)
+        gradh1 = G.gen_gradh1(True)
+        x_ans, wk, jac = utils.GALP(F, gradF, h1, gradh1, x0, indices=[0])
+        print(wk, utils.RMSD(x_ans, sensors), utils.Linf(x_ans, sensors), np.linalg.norm(jac))
