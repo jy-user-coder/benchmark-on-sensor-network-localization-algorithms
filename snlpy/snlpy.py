@@ -20,7 +20,7 @@ class snl_case:
             adjs2s = (dds2s_full <= r)
             tmp_dda2s = (dda2s_full * adja2s).T
             tmp_dds2s = dds2s_full * adjs2s
-            self.is_sparse = False
+            # self.is_sparse = False
             self.dda2s = (tmp_dda2s).reshape((-1,))
             self.dds2s = tmp_dds2s
             self.target_radius = np.hstack([(self.dds2s==0)*r + self.dds2s, (self.dda2s==0)*r + self.dda2s])
@@ -46,9 +46,26 @@ class snl_case:
         n = self.n
         if is_relaxed:
             def gradF(x):
-                res = np.zeros((len(self.indices), 2*n))
+                res = np.zeros((len(self.indices[0]), 2*n))
                 re_x = x.reshape((-1, 2))
-                
+                k = 0
+                for i in range(n):
+                    for j in range(i+1, n):
+                        entry = n * i + j - ((i + 2) * (i + 1)) // 2 
+                        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
+                        if self.dds2s[entry] > 0:
+                            res[k, 2*i] = re_x[i, 0] - re_x[j, 0]
+                            res[k, 2*i + 1] = re_x[i, 1] - re_x[j, 1]
+                            res[k, 2*j] = -re_x[i, 0] + re_x[j, 0]
+                            res[k, 2*j + 1] = -re_x[i, 1] + re_x[j, 1]
+                            k = k + 1
+                k1 = k
+                for i in range(n):
+                    for j in range(m):
+                        entry = j + self.m*i
+                        if self.dda2s[entry] > 0:
+                            res[k, 2*i:2*i+2] = re_x[i, :] - self.anchors[j, :]
+                            k = k + 1
                 return res
         else:
             def gradF(x):

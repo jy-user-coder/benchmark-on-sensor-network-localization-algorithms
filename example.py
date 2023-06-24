@@ -39,6 +39,6 @@ for i in range(num_test):
         gradF = G.gen_gradF(False)
         h = G.gen_h1(False)
         gradh = G.gen_gradh1(False)
-        ans, wk, k = utils.GALP(F, gradF, h, gradh, x0, 100, sigma=0.0001)
-        print('test no.', i, 'RMSD', utils.RMSD(ans, sensors))
+        ans, wk, k = utils.GALP(F, gradF, h, gradh, x0, epochs=100, sigma=0.0001)
+
 
