@@ -7,12 +7,13 @@ from timeit import default_timer
 
 
 class snl_case:
-    def __init__(self, anchors, sensors_true, r, method='default'):
+    def __init__(self, anchors, sensors_true, r, is_relaxed=True, method='default'):
         assert anchors.shape[1] == sensors_true.shape[1]
         self.anchors = anchors
         self.m = anchors.shape[0]
         self.n = sensors_true.shape[0]
         self.DIM = anchors.shape[1]
+        self.is_relaxed = is_relaxed
         dda2s_full = sp.distance.cdist(anchors, sensors_true)
         dds2s_full = sp.distance.pdist(sensors_true)
         if method == 'default':
@@ -24,15 +25,21 @@ class snl_case:
             self.dds2s = tmp_dds2s
             self.target_radius = np.hstack([(self.dds2s==0)*r + self.dds2s, (self.dda2s==0)*r + self.dda2s])
             self.target_relaxed = np.hstack([self.dds2s, self.dda2s])
-            self.indices = np.nonzero(self.target_relaxed)
+            self.N = len(self.target_relaxed)
+            self.indices = np.nonzero(self.target_relaxed)[0]
 
 
-    def gen_F(self, is_relaxed):
+    def set_is_relaxed(self, is_relaxed):
+        self.is_relaxed = is_relaxed
+        return self
+
+
+    def gen_F(self):
         def F(x):
             re_x = x.reshape((-1, 2))
             current_dda2s = (sp.distance.cdist(self.anchors, re_x).T).reshape((-1,))
             current_dds2s = sp.distance.pdist(re_x)
-            if is_relaxed:
+            if self.is_relaxed:
                 F_val = 0.5*(np.hstack([current_dds2s, current_dda2s])**2 - self.target_relaxed**2)[self.indices]
             else:
                 F_val = 0.5*(np.hstack([current_dds2s, current_dda2s])**2 - self.target_radius**2)
@@ -40,12 +47,12 @@ class snl_case:
         return F
 
 
-    def gen_gradF(self, is_relaxed):
+    def gen_gradF(self):
         m = self.m
         n = self.n
-        if is_relaxed:
+        if self.is_relaxed:
             def gradF(x):
-                res = np.zeros((len(self.indices[0]), 2*n))
+                res = np.zeros((len(self.indices), 2*n))
                 re_x = x.reshape((-1, 2))
                 k = 0
                 for i in range(n):
@@ -64,7 +71,7 @@ class snl_case:
                         if self.dda2s[entry] > 0:
                             res[k, 2*i:2*i+2] = re_x[i, :] - self.anchors[j, :]
                             k = k + 1
-                return sm.csr_matrix(res)
+                return sm.csc_matrix(res)
         else:
             def gradF(x):
                 re_x = x.reshape((-1, 2))
@@ -80,7 +87,7 @@ class snl_case:
                         res[k, 2*j] = -re_x[i, 0] + re_x[j, 0]
                         res[k, 2*j + 1] = -re_x[i, 1] + re_x[j, 1]
                         k = k + 1
-                return sm.csr_matrix(res)
+                return sm.csc_matrix(res)
         return gradF
 
 
@@ -89,8 +96,8 @@ class snl_case:
         return ((dis==0) * (x<0) * x**2 + (dis!=0) * x**2)/2
 
 
-    def gen_h2(self, is_relaxed):
-        if is_relaxed:
+    def gen_h2(self):
+        if self.is_relaxed:
             return lambda x: np.sum(x**2)/2
         else:
             def h(x):
@@ -104,8 +111,8 @@ class snl_case:
         return ((dis==0) * (x<0) * x) + ((dis!=0) * x)
 
 
-    def gen_gradh2(self, is_relaxed):
-        if is_relaxed:
+    def gen_gradh2(self):
+        if self.is_relaxed:
             return lambda x: x
         else: 
             def gradh(x):
@@ -118,8 +125,8 @@ class snl_case:
         return ((dis==0) * (x<0) * (-x) + (dis!=0) * np.abs(x))
 
 
-    def gen_h1(self, is_relaxed):
-        if is_relaxed:
+    def gen_h1(self):
+        if self.is_relaxed:
             return lambda x: np.sum(np.abs(x))
         else: 
             def h(x):
@@ -133,13 +140,20 @@ class snl_case:
         return ((dis==0) * (x<0) * (-1) + (dis!=0) * np.sign(x))
 
 
-    def gen_gradh1(self, is_relaxed):
-        if is_relaxed:
+    def gen_gradh1(self):
+        if self.is_relaxed:
             return lambda x: np.sign(x)
         else: 
             def gradh(x):
                 return (self._tmp_gradh1(x, self.target_relaxed))
             return gradh
+        
+
+    def gen_h(self, p):
+        if p == 1:
+            return self.gen_h1(), self.gen_gradh1()
+        elif p == 2:
+            return self.gen_h2(), self.gen_gradh2()
 
 
     ########################################################################
@@ -320,7 +334,7 @@ class snl_case:
         return sm.csc_matrix(weight), bias, z, s
 
 
-    def solve_by_sdp_noise_free(self):
+    def solve_by_sdp_noise_free(self, epochs=2000):
 
         sp_dda2s = sm.csr_matrix((self.dda2s).reshape((self.n, self.m)))
         sp_dds2s = sm.csr_matrix(np.triu(sp.distance.squareform(self.dds2s), 1))
@@ -333,7 +347,7 @@ class snl_case:
         c = self._vec(np.zeros((s, s)))
         data = dict(P=P, A=w, b=b, c=c)
         cone = dict(z=z, s=s)
-        solver = scs.SCS(data, cone, eps_abs=1e-6, eps_rel=1e-6, max_iters=1000)
+        solver = scs.SCS(data, cone, eps_abs=1e-6, eps_rel=1e-6, max_iters=epochs)
         mydict = solver.solve()
         ans_z = self._mat(mydict['x'])
 
@@ -472,7 +486,7 @@ class snl_case:
         return sm.csc_matrix(weight), bias, c, z, s, l
 
 
-    def solve_by_sdp_with_noise(self, regularization=False, **kwargs):
+    def solve_by_sdp_with_noise(self, regularization=False, epochs=2000, **kwargs):
 
         sp_dda2s = sm.csr_matrix((self.dda2s).reshape((self.n, self.m)))
         sp_dds2s = sm.csr_matrix(np.triu(sp.distance.squareform(self.dds2s), 1))
@@ -494,7 +508,7 @@ class snl_case:
         cone = dict(z=z, l=l, s=s)
         t2 = default_timer()
 
-        sol = scs.SCS(data, cone, eps_abs=1e-6, eps_rel=1e-6, max_iters=1000).solve()['x']
+        sol = scs.SCS(data, cone, eps_abs=1e-6, eps_rel=1e-6, max_iters=epochs).solve()['x']
         mysol = self._mat(sol[l:])
         
         return mysol[0:DIM, DIM:], mysol
@@ -531,7 +545,6 @@ class snl_case:
 
         Si_minus_Sj = sensors @ S2
         normsquare_s2s = np.sum(Si_minus_Sj**2, axis=0)
-
         res = np.sum(np.abs(normsquare_a2s-disa2s**2)) + np.sum(np.abs(normsquare_s2s-diss2s**2))
 
         return res
@@ -616,16 +629,16 @@ class snl_case:
                 s_iter = s_iter - rate*part_grad
 
                 if True in np.isnan(s_iter):
-                    return s_iter, np.inf
+                    return s_iter, np.inf, np.inf
 
-            current_loss = self._func_21(m, n, anchors, s_iter, dda2s, dds2s)
+            current_grad, current_loss = self._func_grad_21(m, n, anchors, s_iter, dda2s, dds2s)
 
             if (k+1)%20 == 0:
                 print(k+1, current_loss)
             if current_loss < tol:
-                return s_iter, current_loss
+                return s_iter, current_loss, np.linalg.norm(current_grad)
 
-        return s_iter, current_loss
+        return s_iter, current_loss, np.linalg.norm(current_grad)
 
 
     def sgd_21_high_dim(self, sensors, rng, tol=10**(-4), epochs=100, **kwargs):
@@ -678,14 +691,15 @@ class snl_case:
                 s_iter[d:, :] -= rate * penalty * s_iter[d:, :]
         
                 if True in np.isnan(s_iter):
-                    return s_iter[0:d, :], np.inf
+                    return s_iter[0:d, :], np.inf, np.inf
 
-            current_loss = self._func_21(m, n, new_anchors, s_iter, dda2s, dds2s) + 0.5 * penalty * np.sum(np.sum(s_iter[d:, :]**2))
+            current_grad, current_loss = self._func_grad_21(m, n, new_anchors, s_iter, dda2s, dds2s)
+            current_loss +=  + 0.5 * penalty * np.sum(np.sum(s_iter[d:, :]**2))
 
             if (k+1)%5 == 0:
                 print(k+1, current_loss)
             if current_loss < tol:
-                return s_iter[0:d, :], current_loss
+                return s_iter[0:d, :], current_loss, np.linalg.norm(current_grad)
 
-        return s_iter[0:d, :], current_loss
+        return s_iter[0:d, :], current_loss, np.linalg.norm(current_grad)
 
