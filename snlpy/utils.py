@@ -27,7 +27,7 @@ def mytable(out, myname=['SDR', 'SGD', 'Compound', 'GD', 'SGD($\\mathbb{R}^{n+d}
         print(myname[x], end=' & ')
         for y in range(yy):
             if y == yy-1:
-                print(out[x, y], '\\\\\hline')
+                print(out[x, y], end='\\% \\\\\hline\n')
             else: 
                 print(out[x, y], end='\\% & ')
 
