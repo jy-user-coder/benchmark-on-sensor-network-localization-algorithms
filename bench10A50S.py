@@ -75,7 +75,7 @@ for random_case in tqdm(range(5)):
             final_res[:, 5, j, current_case] = np.array([rmsd_sgdcom, loss_sgdcom, grad_sgdcom, 0])
 
             for p in [1, 2]:
-                for is_relaxed in [False, True]:
+                for is_relaxed in [True, False]:
                     G = G.set_is_relaxed(is_relaxed)
                     F = G.gen_F()
                     gradF = G.gen_gradF()
@@ -87,10 +87,8 @@ for random_case in tqdm(range(5)):
                         if is_relaxed:
                             sub_method, optimizer = 'min', 'BFGS'
                         else:
-                            # too slow
-                            continue
                             sub_method, optimizer = 'min', 'BFGS'
-                    sol, loss, grad = utils.GALP(F, gradF, h, gradh, x0, sigma=sigma, \
+                    sol, loss, grad = utils.GALP(F, gradF, h, gradh, x0, is_exact=True, \
                                             indices=G.indices, sub_method=sub_method, optimizer=optimizer)
                     rmsd = utils.RMSD(sol, sensors)
                     linf = utils.Linf(sol, sensors)
@@ -107,7 +105,7 @@ for random_case in tqdm(range(5)):
             final_res[:, 2, j, current_case] = np.array([rmsd_com, loss_com, grad_com, 0])
             x1 = (x1.T).reshape((-1,))
             for p in [1, 2]:
-                for is_relaxed in [False, True]:
+                for is_relaxed in [True, False]:
                     G = G.set_is_relaxed(is_relaxed)
                     F = G.gen_F()
                     gradF = G.gen_gradF()
@@ -120,7 +118,7 @@ for random_case in tqdm(range(5)):
                             sub_method, optimizer = 'min', 'BFGS'
                         else:
                             sub_method, optimizer = 'min', 'BFGS'
-                    sol, loss, grad = utils.GALP(F, gradF, h, gradh, x1, sigma=sigma, \
+                    sol, loss, grad = utils.GALP(F, gradF, h, gradh, x1, is_exact=True, \
                                             indices=G.indices, sub_method=sub_method, optimizer=optimizer)
                     rmsd = utils.RMSD(sol, sensors)
                     linf = utils.Linf(sol, sensors)
